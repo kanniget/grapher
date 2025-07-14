@@ -37,3 +37,11 @@ docker run -p 8080:8080 grapher
 
 Environment variables can be passed to configure the application in the container.
 
+
+Alternatively you can start the application using Docker Compose:
+
+```sh
+docker compose up
+```
+
+This will build the image and run the service on port 8080 while persisting the database in a named volume.
