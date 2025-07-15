@@ -18,5 +18,6 @@ FROM debian:stable-slim
 WORKDIR /app
 COPY --from=backend /server ./server
 COPY --from=frontend /backend/public ./public
+COPY config.json ./config.json
 EXPOSE 8080
 CMD ["./server"]

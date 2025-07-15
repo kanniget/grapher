@@ -6,11 +6,20 @@ a graph to the user. OAuth2 authentication can be enabled via environment variab
 
 ## Backend
 
-The backend resides in `backend/` and can be configured using the following environment variables:
+The backend resides in `backend/` and reads its polling target from a JSON configuration file.
+The path can be specified via the `CONFIG_PATH` environment variable (default `config.json`).
+The file should contain:
 
-- `SNMP_HOST` – address of the SNMP device (default `localhost`)
-- `SNMP_COMMUNITY` – SNMP community string (`public`)
-- `SNMP_OID` – OID to query (`.1.3.6.1.2.1.1.3.0`)
+```json
+{
+  "host": "localhost",
+  "community": "public",
+  "oid": ".1.3.6.1.2.1.1.3.0"
+}
+```
+
+Additional options can still be set through environment variables:
+
 - `POLL_INTERVAL` – polling interval (e.g. `30s`)
 - `DB_PATH` – path to the BoltDB file (`data.db`)
 - `ADDR` – HTTP listen address (`:8080`)
