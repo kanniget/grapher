@@ -1,6 +1,6 @@
 module grapher
 
-go 1.21
+go 1.23
 
 require (
 	github.com/gosnmp/gosnmp v1.36.0
