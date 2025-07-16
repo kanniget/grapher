@@ -6,15 +6,19 @@ a graph to the user. OAuth2 authentication can be enabled via environment variab
 
 ## Backend
 
-The backend resides in `backend/` and reads its polling target from a JSON configuration file.
+The backend resides in `backend/` and reads its polling targets from a JSON configuration file.
 The path can be specified via the `CONFIG_PATH` environment variable (default `config.json`).
-The file should contain:
+The file should list one or more polling sources:
 
 ```json
 {
-  "host": "localhost",
-  "community": "public",
-  "oid": ".1.3.6.1.2.1.1.3.0"
+  "sources": [
+    {
+      "host": "localhost",
+      "community": "public",
+      "oid": ".1.3.6.1.2.1.1.3.0"
+    }
+  ]
 }
 ```
 
