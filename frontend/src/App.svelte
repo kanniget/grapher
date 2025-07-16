@@ -2,11 +2,15 @@
   import { onMount } from 'svelte';
   import * as d3 from 'd3';
 
-  let data = [];
+  let datasets = {};
+  let selected = '';
 
   async function fetchData() {
     const res = await fetch('/api/data', {headers: {'Authorization': localStorage.getItem('token') || ''}});
-    data = await res.json();
+    datasets = await res.json();
+    if (!selected && Object.keys(datasets).length) {
+      selected = Object.keys(datasets)[0];
+    }
     draw();
   }
 
@@ -16,6 +20,8 @@
       svg = d3.select('#chart').append('svg').attr('width', 600).attr('height', 300);
     }
     svg.selectAll('*').remove();
+    const data = datasets[selected] || [];
+    if (!data.length) return;
     const x = d3.scaleTime().range([0, 580]);
     const y = d3.scaleLinear().range([280, 0]);
     data.forEach(d => { d.date = new Date(d.timestamp * 1000); });
@@ -34,4 +40,9 @@
 
 <div id="chart"></div>
 
+<select bind:value={selected} on:change={draw}>
+  {#each Object.keys(datasets) as name}
+    <option value={name}>{name}</option>
+  {/each}
+</select>
 <button on:click={fetchData}>Refresh</button>

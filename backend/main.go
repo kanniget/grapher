@@ -20,9 +20,6 @@ const bucketName = "samples"
 func main() {
 	cfgPath := getEnv("CONFIG_PATH", "config.json")
 	cfg := loadPollConfig(cfgPath)
-	snmpHost := cfg.Host
-	snmpCommunity := cfg.Community
-	snmpOID := cfg.OID
 	pollInterval := getEnvDuration("POLL_INTERVAL", time.Minute)
 	dbPath := getEnv("DB_PATH", "data.db")
 
@@ -38,7 +35,9 @@ func main() {
 
 	go func() {
 		for {
-			poll(snmpHost, snmpCommunity, snmpOID, db)
+			for _, src := range cfg.Sources {
+				poll(src, db)
+			}
 			time.Sleep(pollInterval)
 		}
 	}()
@@ -58,12 +57,21 @@ func main() {
 type sample struct {
 	Timestamp int64   `json:"timestamp"`
 	Value     float64 `json:"value"`
+	Source    string  `json:"source"`
 }
 
-type pollConfig struct {
+type pollSource struct {
+	Name      string `json:"name"`
 	Host      string `json:"host"`
 	Community string `json:"community"`
 	OID       string `json:"oid"`
+}
+
+type pollConfig struct {
+	Sources   []pollSource `json:"sources"`
+	Host      string       `json:"host"`      // legacy single source
+	Community string       `json:"community"` // legacy single source
+	OID       string       `json:"oid"`       // legacy single source
 }
 
 func loadPollConfig(path string) pollConfig {
@@ -75,23 +83,33 @@ func loadPollConfig(path string) pollConfig {
 	if err := json.Unmarshal(b, &c); err != nil {
 		log.Fatalf("parse config: %v", err)
 	}
-	if c.Host == "" {
-		c.Host = "localhost"
+
+	if len(c.Sources) == 0 {
+		// fall back to legacy single source definition
+		src := pollSource{Host: c.Host, Community: c.Community, OID: c.OID}
+		c.Sources = []pollSource{src}
 	}
-	if c.Community == "" {
-		c.Community = "public"
+
+	for i := range c.Sources {
+		if c.Sources[i].Host == "" {
+			c.Sources[i].Host = "localhost"
+		}
+		if c.Sources[i].Community == "" {
+			c.Sources[i].Community = "public"
+		}
+		if c.Sources[i].OID == "" {
+			c.Sources[i].OID = ".1.3.6.1.2.1.1.3.0"
+		}
 	}
-	if c.OID == "" {
-		c.OID = ".1.3.6.1.2.1.1.3.0"
-	}
+
 	return c
 }
 
-func poll(host, community, oid string, db *bolt.DB) {
+func poll(src pollSource, db *bolt.DB) {
 	gs := &gosnmp.GoSNMP{
-		Target:    host,
+		Target:    src.Host,
 		Port:      161,
-		Community: community,
+		Community: src.Community,
 		Version:   gosnmp.Version2c,
 		Timeout:   time.Duration(2) * time.Second,
 		Retries:   1,
@@ -101,7 +119,7 @@ func poll(host, community, oid string, db *bolt.DB) {
 		return
 	}
 	defer gs.Conn.Close()
-	pdu, err := gs.Get([]string{oid})
+	pdu, err := gs.Get([]string{src.OID})
 	if err != nil {
 		log.Println("SNMP get error:", err)
 		return
@@ -111,30 +129,53 @@ func poll(host, community, oid string, db *bolt.DB) {
 		return
 	}
 	val := float64(toInt(pdu.Variables[0].Value))
-	s := sample{Timestamp: time.Now().Unix(), Value: val}
+	name := src.Name
+	if name == "" {
+		name = fmt.Sprintf("%s_%s", src.Host, strings.ReplaceAll(src.OID, ".", "-"))
+	}
+	s := sample{Timestamp: time.Now().Unix(), Value: val, Source: name}
 	db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
+		sb, err := b.CreateBucketIfNotExists([]byte(name))
+		if err != nil {
+			return err
+		}
 		key := []byte(fmt.Sprintf("%d", s.Timestamp))
 		buf, _ := json.Marshal(s)
-		return b.Put(key, buf)
+		return sb.Put(key, buf)
 	})
-	log.Printf("polled: %v", s)
+	log.Printf("polled %s: %v", name, s)
 }
 
-func readSamples(db *bolt.DB) []sample {
-	samples := []sample{}
+func readSamples(db *bolt.DB) map[string][]sample {
+	result := map[string][]sample{}
 	db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return nil
+		}
 		b.ForEach(func(k, v []byte) error {
-			var s sample
-			if err := json.Unmarshal(v, &s); err == nil {
-				samples = append(samples, s)
+			if v != nil {
+				return nil
 			}
+			sb := b.Bucket(k)
+			if sb == nil {
+				return nil
+			}
+			var list []sample
+			sb.ForEach(func(kk, vv []byte) error {
+				var s sample
+				if err := json.Unmarshal(vv, &s); err == nil {
+					list = append(list, s)
+				}
+				return nil
+			})
+			result[string(k)] = list
 			return nil
 		})
 		return nil
 	})
-	return samples
+	return result
 }
 
 func getEnv(key, def string) string {
