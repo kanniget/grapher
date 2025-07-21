@@ -35,7 +35,6 @@ Static frontend files are served from `backend/public`.
 ## Frontend
 
 A simple Svelte application in `frontend/` uses D3 to plot the time series returned from `/api/data`.
-It renders a dashboard where all configured sources are shown on their own chart simultaneously.
 Run `npm install` and `npm run build` in the `frontend` directory to build the assets. They will be
 placed into `backend/public` and served by the Go backend.
 
