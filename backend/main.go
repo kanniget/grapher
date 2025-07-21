@@ -110,7 +110,7 @@ func poll(src pollSource, db *bolt.DB) {
 		Target:    src.Host,
 		Port:      161,
 		Community: src.Community,
-		Version:   gosnmp.Version2c,
+		Version:   gosnmp.Version1,
 		Timeout:   time.Duration(2) * time.Second,
 		Retries:   1,
 	}
