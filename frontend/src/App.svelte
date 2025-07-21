@@ -33,6 +33,12 @@
     svg.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
     svg.append('g').attr('transform', 'translate(0,280)').call(d3.axisBottom(x));
     svg.append('g').call(d3.axisLeft(y));
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('y', 15)
+      .attr('x', -140)
+      .attr('text-anchor', 'middle')
+      .text('Temperature');
   }
 
   onMount(fetchData);
