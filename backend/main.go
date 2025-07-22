@@ -42,10 +42,22 @@ func main() {
 		}
 	}()
 
-	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		data := readSamples(db)
-		json.NewEncoder(w).Encode(data)
-	})))
+       http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+               samples := readSamples(db)
+               result := map[string]dataset{}
+               for name, data := range samples {
+                       ds := dataset{Data: data}
+                       for _, src := range cfg.Sources {
+                               if sourceName(src) == name {
+                                       ds.Units = src.Units
+                                       ds.Type = src.Type
+                                       break
+                               }
+                       }
+                       result[name] = ds
+               }
+               json.NewEncoder(w).Encode(result)
+       })))
 
 	http.Handle("/", http.FileServer(http.Dir("public")))
 
@@ -55,9 +67,15 @@ func main() {
 }
 
 type sample struct {
-	Timestamp int64   `json:"timestamp"`
-	Value     float64 `json:"value"`
-	Source    string  `json:"source"`
+        Timestamp int64   `json:"timestamp"`
+        Value     float64 `json:"value"`
+        Source    string  `json:"source"`
+}
+
+type dataset struct {
+        Units string   `json:"units,omitempty"`
+        Type  string   `json:"type,omitempty"`
+        Data  []sample `json:"data"`
 }
 
 type pollSource struct {
@@ -74,6 +92,13 @@ type pollConfig struct {
 	Host      string       `json:"host"`      // legacy single source
 	Community string       `json:"community"` // legacy single source
 	OID       string       `json:"oid"`       // legacy single source
+}
+
+func sourceName(src pollSource) string {
+        if src.Name != "" {
+                return src.Name
+        }
+        return fmt.Sprintf("%s_%s", src.Host, strings.ReplaceAll(src.OID, ".", "-"))
 }
 
 func loadPollConfig(path string) pollConfig {
