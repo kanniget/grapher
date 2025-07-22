@@ -28,10 +28,13 @@ func main() {
 	dbPath := flag.String("db", getEnv("DB_PATH", "data.db"), "path to database")
 	flag.CommandLine.Parse(os.Args[2:])
 
+	fmt.Sprintf("Try to open: %s    ----> ", *dbPath)
+
 	db, err := bolt.Open(*dbPath, 0600, nil)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
+	fmt.Sprint("open\n")
 	defer db.Close()
 
 	switch cmd {
