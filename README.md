@@ -64,11 +64,12 @@ This will build the image and run the service on port 8080 while persisting the 
 
 ## Database maintenance
 
-The Docker image ships with a `dbtool` helper that can modify the BoltDB file used by the backend. It supports renaming, deleting and merging data sources. The tool accepts the same `DB_PATH` environment variable as the server or a custom path via the `-db` flag.
+The Docker image ships with a `dbtool` helper that can modify the BoltDB file used by the backend. It supports renaming, deleting, merging and listing data sources. The tool accepts the same `DB_PATH` environment variable as the server or a custom path via the `-db` flag.
 
 Examples:
 
 ```sh
 docker run --rm -v data:/data grapher ./dbtool rename old_name new_name
+docker run --rm -v data:/data grapher ./dbtool list
 ```
 

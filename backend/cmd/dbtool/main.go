@@ -62,6 +62,14 @@ func main() {
 		if err := mergeSource(db, from, to); err != nil {
 			log.Fatalf("merge: %v", err)
 		}
+	case "list":
+		if flag.NArg() != 0 {
+			usage()
+			os.Exit(1)
+		}
+		if err := listSources(db); err != nil {
+			log.Fatalf("list: %v", err)
+		}
 	default:
 		usage()
 		os.Exit(1)
@@ -141,11 +149,28 @@ func mergeSource(db *bolt.DB, from, to string) error {
 	})
 }
 
+func listSources(db *bolt.DB) error {
+	return db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", bucketName)
+		}
+		return b.ForEach(func(k, v []byte) error {
+			if v != nil {
+				return nil
+			}
+			fmt.Println(string(k))
+			return nil
+		})
+	})
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  dbtool [flags] rename <from> <to>")
 	fmt.Fprintln(os.Stderr, "  dbtool [flags] delete <name>")
 	fmt.Fprintln(os.Stderr, "  dbtool [flags] merge <from> <to>")
+	fmt.Fprintln(os.Stderr, "  dbtool [flags] list")
 	flag.PrintDefaults()
 }
 
