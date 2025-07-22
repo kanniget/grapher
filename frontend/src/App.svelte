@@ -40,7 +40,10 @@
       const y = d3.scaleLinear().range([height, 0]);
       data.forEach(d => { d.date = new Date(d.timestamp * 1000); });
       x.domain(d3.extent(data, d => d.date));
-      y.domain([0, d3.max(data, d => d.value * scale)]);
+      const minVal = d3.min(data, d => d.value * scale);
+      const maxVal = d3.max(data, d => d.value * scale);
+      const padding = (maxVal - minVal) * 0.1;
+      y.domain([minVal - padding, maxVal + padding]);
       const line = d3.line()
         .x(d => x(d.date))
         .y(d => y(d.value * scale));
