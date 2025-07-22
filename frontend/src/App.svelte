@@ -56,10 +56,8 @@
       if (units) details.push(units);
       if (details.length) label += ` (${details.join(' ')})`;
       g.append('text')
-        .attr('transform', 'rotate(-90)')
-        .attr('y', -margin.left)
-        .attr('x', -height / 2)
-        .attr('dy', '1em')
+        .attr('x', width / 2)
+        .attr('y', height + margin.bottom + 15)
         .attr('text-anchor', 'middle')
         .text(label);
     }
@@ -86,10 +84,8 @@
     const yLabel = labelParts.join(' ');
 
     g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('y', -margin.left)
-      .attr('x', -height / 2)
-      .attr('dy', '1em')
+      .attr('x', width / 2)
+      .attr('y', height + margin.bottom + 15)
       .attr('text-anchor', 'middle')
       .text(yLabel);
 
