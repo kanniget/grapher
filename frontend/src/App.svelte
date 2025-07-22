@@ -20,7 +20,10 @@
     const width = 600 - margin.left - margin.right;
     const height = 300 - margin.top - margin.bottom;
 
-    for (const [name, data] of Object.entries(datasets)) {
+    for (const [name, info] of Object.entries(datasets)) {
+      const data = info.data || [];
+      const units = info.units || '';
+      const type = info.type || '';
       let container = d3.select(`#chart-${safeId(name)}`);
       let svg = container.select('svg');
       let g;
@@ -43,12 +46,17 @@
       g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
       g.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
       g.append('g').call(d3.axisLeft(y));
+      let label = name;
+      const details = [];
+      if (type) details.push(type);
+      if (units) details.push(units);
+      if (details.length) label += ` (${details.join(' ')})`;
       g.append('text')
         .attr('transform', 'rotate(-90)')
         .attr('y', 15)
         .attr('x', -140)
         .attr('text-anchor', 'middle')
-        .text('Temperature');
+        .text(label);
     }
   }
 
