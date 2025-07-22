@@ -42,22 +42,84 @@ func main() {
 		}
 	}()
 
-       http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-               samples := readSamples(db)
-               result := map[string]dataset{}
-               for name, data := range samples {
-                       ds := dataset{Data: data}
-                       for _, src := range cfg.Sources {
-                               if sourceName(src) == name {
-                                       ds.Units = src.Units
-                                       ds.Type = src.Type
-                                       break
-                               }
-                       }
-                       result[name] = ds
-               }
-               json.NewEncoder(w).Encode(result)
-       })))
+	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		samples := readSamples(db)
+		result := map[string]dataset{}
+		for name, data := range samples {
+			ds := dataset{Data: data}
+			for _, src := range cfg.Sources {
+				if sourceName(src) == name {
+					ds.Units = src.Units
+					ds.Type = src.Type
+					break
+				}
+			}
+			result[name] = ds
+		}
+		json.NewEncoder(w).Encode(result)
+	})))
+
+	// database maintenance endpoints
+	http.Handle("/api/db/rename", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct{ From, To string }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.From == "" || req.To == "" {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if err := renameSource(db, req.From, req.To); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})))
+
+	http.Handle("/api/db/delete", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct{ Name string }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if err := deleteSource(db, req.Name); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})))
+
+	http.Handle("/api/db/merge", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct{ From, To string }
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.From == "" || req.To == "" {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		if err := mergeSource(db, req.From, req.To); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})))
+
+	http.Handle("/api/db/list", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		list, err := listSources(db)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(list)
+	})))
 
 	http.Handle("/", http.FileServer(http.Dir("public")))
 
@@ -67,15 +129,15 @@ func main() {
 }
 
 type sample struct {
-        Timestamp int64   `json:"timestamp"`
-        Value     float64 `json:"value"`
-        Source    string  `json:"source"`
+	Timestamp int64   `json:"timestamp"`
+	Value     float64 `json:"value"`
+	Source    string  `json:"source"`
 }
 
 type dataset struct {
-        Units string   `json:"units,omitempty"`
-        Type  string   `json:"type,omitempty"`
-        Data  []sample `json:"data"`
+	Units string   `json:"units,omitempty"`
+	Type  string   `json:"type,omitempty"`
+	Data  []sample `json:"data"`
 }
 
 type pollSource struct {
@@ -95,10 +157,10 @@ type pollConfig struct {
 }
 
 func sourceName(src pollSource) string {
-        if src.Name != "" {
-                return src.Name
-        }
-        return fmt.Sprintf("%s_%s", src.Host, strings.ReplaceAll(src.OID, ".", "-"))
+	if src.Name != "" {
+		return src.Name
+	}
+	return fmt.Sprintf("%s_%s", src.Host, strings.ReplaceAll(src.OID, ".", "-"))
 }
 
 func loadPollConfig(path string) pollConfig {
@@ -203,6 +265,97 @@ func readSamples(db *bolt.DB) map[string][]sample {
 		return nil
 	})
 	return result
+}
+
+func renameSource(db *bolt.DB, from, to string) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", bucketName)
+		}
+		src := b.Bucket([]byte(from))
+		if src == nil {
+			return fmt.Errorf("source %s not found", from)
+		}
+		dest, err := b.CreateBucket([]byte(to))
+		if err != nil {
+			return err
+		}
+		if err := src.ForEach(func(k, v []byte) error {
+			var s sample
+			if err := json.Unmarshal(v, &s); err == nil {
+				s.Source = to
+				if nb, err := json.Marshal(s); err == nil {
+					v = nb
+				}
+			}
+			return dest.Put(k, v)
+		}); err != nil {
+			return err
+		}
+		if err := b.DeleteBucket([]byte(from)); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func deleteSource(db *bolt.DB, name string) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", bucketName)
+		}
+		return b.DeleteBucket([]byte(name))
+	})
+}
+
+func mergeSource(db *bolt.DB, from, to string) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", bucketName)
+		}
+		src := b.Bucket([]byte(from))
+		if src == nil {
+			return fmt.Errorf("source %s not found", from)
+		}
+		dest, err := b.CreateBucketIfNotExists([]byte(to))
+		if err != nil {
+			return err
+		}
+		if err := src.ForEach(func(k, v []byte) error {
+			var s sample
+			if err := json.Unmarshal(v, &s); err == nil {
+				s.Source = to
+				if nb, err := json.Marshal(s); err == nil {
+					v = nb
+				}
+			}
+			return dest.Put(k, v)
+		}); err != nil {
+			return err
+		}
+		return b.DeleteBucket([]byte(from))
+	})
+}
+
+func listSources(db *bolt.DB) ([]string, error) {
+	var names []string
+	err := db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			return fmt.Errorf("bucket %s not found", bucketName)
+		}
+		return b.ForEach(func(k, v []byte) error {
+			if v != nil {
+				return nil
+			}
+			names = append(names, string(k))
+			return nil
+		})
+	})
+	return names, err
 }
 
 func getEnv(key, def string) string {
