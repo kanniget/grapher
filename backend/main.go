@@ -65,6 +65,8 @@ type pollSource struct {
 	Host      string `json:"host"`
 	Community string `json:"community"`
 	OID       string `json:"oid"`
+	Units     string `json:"units,omitempty"`
+	Type      string `json:"type,omitempty"`
 }
 
 type pollConfig struct {

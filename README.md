@@ -14,9 +14,12 @@ The file should list one or more polling sources:
 {
   "sources": [
     {
+      "name": "Internal sensor",
       "host": "localhost",
       "community": "public",
-      "oid": ".1.3.6.1.2.1.1.3.0"
+      "oid": ".1.3.6.1.2.1.1.3.0",
+      "units": "C",
+      "type": "temperature"
     }
   ]
 }

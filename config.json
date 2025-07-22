@@ -4,19 +4,25 @@
       "name": "Internal sensor",
       "host": "192.168.1.253",
       "community": "public",
-      "oid": "1.3.6.1.4.1.20916.1.10.1.1.1.0"
+      "oid": "1.3.6.1.4.1.20916.1.10.1.1.1.0",
+      "units": "C",
+      "type": "temperature"
     },
     {
       "name": "External sensor - Temp",
       "host": "192.168.1.253",
       "community": "public",
-      "oid": "1.3.6.1.4.1.20916.1.10.1.2.1.0"
+      "oid": "1.3.6.1.4.1.20916.1.10.1.2.1.0",
+      "units": "C",
+      "type": "temperature"
     },
     {
       "name": "External sensor - Relative Humidity",
       "host": "192.168.1.253",
       "community": "public",
-      "oid": "1.3.6.1.4.1.20916.1.10.1.2.3.0"
+      "oid": "1.3.6.1.4.1.20916.1.10.1.2.3.0",
+      "units": "%",
+      "type": "humidity"
     }
   ]
 }
