@@ -57,8 +57,9 @@
       if (details.length) label += ` (${details.join(' ')})`;
       g.append('text')
         .attr('transform', 'rotate(-90)')
-        .attr('y', -margin.left + 15)
+        .attr('y', -margin.left)
         .attr('x', -height / 2)
+        .attr('dy', '1em')
         .attr('text-anchor', 'middle')
         .text(label);
     }
@@ -86,8 +87,9 @@
 
     g.append('text')
       .attr('transform', 'rotate(-90)')
-      .attr('y', -margin.left + 10)
+      .attr('y', -margin.left)
       .attr('x', -height / 2)
+      .attr('dy', '1em')
       .attr('text-anchor', 'middle')
       .text(yLabel);
 
