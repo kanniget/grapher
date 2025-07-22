@@ -11,12 +11,13 @@ WORKDIR /app
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend ./backend
-RUN cd backend && go build -o /server
+RUN cd backend && go build -o /server && go build -o /dbtool ./cmd/dbtool
 
 # final image
 FROM debian:stable-slim
 WORKDIR /app
 COPY --from=backend /server ./server
+COPY --from=backend /dbtool ./dbtool
 COPY --from=frontend /backend/public ./public
 COPY config.json ./config.json
 EXPOSE 8080
