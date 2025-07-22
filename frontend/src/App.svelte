@@ -11,7 +11,7 @@
   }
 
   function safeId(name) {
-    return encodeURIComponent(name);
+    return name.replace(/[^A-Za-z0-9_-]/g, '_');
   }
 
   function drawAll() {
