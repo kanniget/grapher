@@ -25,8 +25,9 @@
       g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
     }
     g.selectAll('*').remove();
-    const data = datasets[selected] || [];
-    if (!data.length) return;
+    const ds = datasets[selected] || {};
+    const data = ds.data || ds;
+    if (!data || !data.length) return;
     const x = d3.scaleTime().range([0, width]);
     const y = d3.scaleLinear().range([height, 0]);
     data.forEach(d => { d.date = new Date(d.timestamp * 1000); });
@@ -38,12 +39,17 @@
     g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
     g.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
     g.append('g').call(d3.axisLeft(y));
+    const labelParts = [];
+    if (ds.type) labelParts.push(ds.type);
+    if (ds.units) labelParts.push(`(${ds.units})`);
+    const yLabel = labelParts.join(' ');
+
     g.append('text')
       .attr('transform', 'rotate(-90)')
-      .attr('y', 15)
-      .attr('x', -140)
+      .attr('y', -margin.left + 10)
+      .attr('x', -height / 2)
       .attr('text-anchor', 'middle')
-      .text('Temperature');
+      .text(yLabel);
   }
 
   onMount(fetchData);
