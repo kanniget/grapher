@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -30,7 +31,11 @@ func main() {
 
 	fmt.Printf("Try to open: %s    ----> ", *dbPath)
 
-	db, err := bolt.Open(*dbPath, 0600, nil)
+	// BoltDB obtains an exclusive file lock when opening the database.
+	// Without a timeout this call blocks indefinitely if another process
+	// already holds the lock (e.g. the server is running). Set a small
+	// timeout so we fail fast instead of hanging.
+	db, err := bolt.Open(*dbPath, 0600, &bolt.Options{Timeout: time.Second})
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
