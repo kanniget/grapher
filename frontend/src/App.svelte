@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import * as d3 from 'd3';
 
   let datasets = {};
@@ -7,6 +7,7 @@
   async function fetchData() {
     const res = await fetch('/api/data', {headers: {'Authorization': localStorage.getItem('token') || ''}});
     datasets = await res.json();
+    await tick();
     drawAll();
   }
 
