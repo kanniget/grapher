@@ -35,6 +35,12 @@
         "Internal sensor - Temp(C)",
         "External sensor - Temp(C)"
       ]
+    },{
+      "name": "Outside Temp vs Humidity",
+      "sources": [
+        "External sensor - Temp(C)",
+        "External sensor - Relative Humidity(%)"
+      ]
     }
   ]
 }
