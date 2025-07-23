@@ -33,7 +33,7 @@
   ],
   "graphs": [
     {
-      "name": "Inside vs Outside Temp",
+      "name": "Room vs Switch Output Temp",
       "sources": [
         "Internal sensor - Temp(C)",
         "External sensor - Temp(C)"
@@ -41,7 +41,7 @@
       "timespan": "24h"
     },
     {
-      "name": "Outside Temp vs Humidity",
+      "name": "Switch Output Temp vs Humidity",
       "sources": [
         "External sensor - Temp(C)",
         "External sensor - Relative Humidity(%)"
@@ -68,6 +68,15 @@
         "External sensor - Relative Humidity(%)"
       ],
       "timespan": "72h"
+    },
+    {
+      "name": "Temps vs Humidity",
+      "sources": [
+        "Internal sensor - Temp(C)",
+        "External sensor - Temp(C)",
+        "External sensor - Relative Humidity(%)"
+      ],
+      "timespan": "24h"
     }
   ]
 }
