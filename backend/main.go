@@ -48,15 +48,24 @@ func main() {
 		for _, g := range cfg.Graphs {
 			var combined []sample
 			var colors map[string]string
+			var cum map[string]bool
 			for _, srcName := range g.Sources {
 				if d, ok := samples[srcName]; ok {
 					combined = append(combined, d...)
 					for _, src := range cfg.Sources {
-						if sourceName(src) == srcName && src.Color != "" {
-							if colors == nil {
-								colors = map[string]string{}
+						if sourceName(src) == srcName {
+							if src.Color != "" {
+								if colors == nil {
+									colors = map[string]string{}
+								}
+								colors[srcName] = src.Color
 							}
-							colors[srcName] = src.Color
+							if src.Cum {
+								if cum == nil {
+									cum = map[string]bool{}
+								}
+								cum[srcName] = true
+							}
 							break
 						}
 					}
@@ -75,7 +84,7 @@ func main() {
 				}
 			}
 			if len(combined) > 0 {
-				result[g.Name] = dataset{Data: combined, Colors: colors}
+				result[g.Name] = dataset{Data: combined, Colors: colors, Cum: cum}
 			}
 		}
 		json.NewEncoder(w).Encode(result)
@@ -161,6 +170,7 @@ type dataset struct {
 	Type   string            `json:"type,omitempty"`
 	Data   []sample          `json:"data"`
 	Colors map[string]string `json:"colors,omitempty"`
+	Cum    map[string]bool   `json:"cumulative,omitempty"`
 }
 
 type pollSource struct {
@@ -172,6 +182,7 @@ type pollSource struct {
 	Type      string `json:"type,omitempty"`
 	Version   string `json:"version,omitempty"`
 	Color     string `json:"color,omitempty"`
+	Cum       bool   `json:"cumulative,omitempty"`
 }
 
 type pollConfig struct {

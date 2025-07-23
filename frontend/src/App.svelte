@@ -37,7 +37,23 @@
     const defaultColor = d3.scaleOrdinal(d3.schemeCategory10);
 
     for (const [name, info] of Object.entries(datasets)) {
-      const data = info.data || [];
+      let data = info.data || [];
+      const cumulative = info.cumulative || {};
+      if (Object.keys(cumulative).length) {
+        const grouped = d3.group(data, d => d.source);
+        const transformed = [];
+        for (const [src, values] of grouped) {
+          if (cumulative[src]) {
+            values.sort((a, b) => a.timestamp - b.timestamp);
+            for (let i = 1; i < values.length; i++) {
+              transformed.push({ ...values[i], value: values[i].value - values[i-1].value });
+            }
+          } else {
+            transformed.push(...values);
+          }
+        }
+        data = transformed;
+      }
       const units = info.units || '';
       const type = info.type || '';
       let container = d3.select(`#chart-${safeId(name)}`);
