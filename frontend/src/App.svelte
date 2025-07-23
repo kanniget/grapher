@@ -152,7 +152,14 @@
 
 <Tabs style="underline">
   {#each groups as grp, i}
-    <TabItem open={i === activeTab} on:click={() => {activeTab = i; fetchData();}}>{grp.name}</TabItem>
+    <TabItem
+      title={grp.name}
+      open={i === activeTab}
+      on:click={() => {
+        activeTab = i;
+        fetchData();
+      }}
+    />
   {/each}
 </Tabs>
 <div id="dashboard">
