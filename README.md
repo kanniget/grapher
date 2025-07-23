@@ -19,6 +19,7 @@ The file should list one or more polling sources. Each source can optionally def
       "community": "public",
       "oid": ".1.3.6.1.2.1.1.3.0",
       "version": "2c",
+      "cumulative": false,
       "units": "C",
       "type": "temperature",
       "color": "#ff0000"
@@ -28,6 +29,8 @@ The file should list one or more polling sources. Each source can optionally def
 ```
 The optional `color` field controls the colour used for this source when drawing graphs.
 Any CSS colour value is allowed.
+Set `cumulative` to `true` for sources that report a running total instead of a current value.
+For such sources the graph will display the difference between successive samples.
 
 You can optionally define comparison graphs which combine multiple sources in a
 single plot. Each graph may also specify a `timespan` field limiting how much
