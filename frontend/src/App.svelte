@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
   import * as d3 from 'd3';
+  import { Tabs, TabItem, Button, Select } from 'flowbite-svelte';
 
   let datasets = {};
   let groups = [];
@@ -8,6 +9,13 @@
   let refreshInterval = 0; // seconds; 0 disables auto-refresh
   let timer;
   let activeTab = 0;
+  const refreshOptions = [
+    { value: 0, name: 'Off' },
+    { value: 5, name: '5s' },
+    { value: 10, name: '10s' },
+    { value: 30, name: '30s' },
+    { value: 60, name: '60s' }
+  ];
 
   async function fetchGroups() {
     const res = await fetch('/api/graphs', {headers: {'Authorization': localStorage.getItem('token') || ''}});
@@ -142,11 +150,11 @@
   });
 </script>
 
-<div id="tabs">
+<Tabs style="underline">
   {#each groups as grp, i}
-    <button class:selected={i === activeTab} on:click={() => {activeTab = i; fetchData();}}>{grp.name}</button>
+    <TabItem open={i === activeTab} on:click={() => {activeTab = i; fetchData();}}>{grp.name}</TabItem>
   {/each}
-</div>
+</Tabs>
 <div id="dashboard">
   {#if groups[activeTab]}
     {#each groups[activeTab].graphs as name}
@@ -157,17 +165,11 @@
     {/each}
   {/if}
 </div>
-<div id="controls">
-  <button on:click={fetchData}>Refresh</button>
-  <label>
-    Auto refresh:
-    <select bind:value={refreshInterval}>
-      <option value="0">Off</option>
-      <option value="5">5s</option>
-      <option value="10">10s</option>
-      <option value="30">30s</option>
-      <option value="60">60s</option>
-    </select>
+<div id="controls" class="flex items-center space-x-4 mt-4">
+  <Button on:click={fetchData}>Refresh</Button>
+  <label class="flex items-center space-x-2">
+    <span>Auto refresh:</span>
+    <Select class="w-28" items={refreshOptions} bind:value={refreshInterval} />
   </label>
 </div>
 
@@ -179,20 +181,5 @@
   .chart-container {
     margin-right: 20px;
     margin-bottom: 20px;
-  }
-  #tabs {
-    margin-bottom: 10px;
-  }
-  #tabs button {
-    margin-right: 5px;
-  }
-  #tabs button.selected {
-    font-weight: bold;
-  }
-  #controls {
-    margin-top: 10px;
-  }
-  #controls label {
-    margin-left: 10px;
   }
 </style>
