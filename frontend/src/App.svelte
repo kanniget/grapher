@@ -149,7 +149,8 @@
         .data(sources)
         .enter()
         .append('div')
-        .attr('class', 'legend-item');
+        .attr('class', 'legend-item')
+        .style('color', d => colorFor(d));
       items.append('span')
         .attr('class', 'legend-color')
         .style('background-color', d => colorFor(d));
@@ -209,14 +210,14 @@
   }
   .legend {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
     margin-top: 4px;
   }
   .legend-item {
     display: flex;
     align-items: center;
-    font-size: 0.875rem;
+    font-size: 0.4375rem;
   }
   .legend-color {
     width: 12px;
