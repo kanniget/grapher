@@ -4,19 +4,36 @@
 
   let datasets = {};
   let groups = [];
+  let allGraphs = [];
   let refreshInterval = 0; // seconds; 0 disables auto-refresh
   let timer;
+  let activeTab = 0;
+
+  async function fetchGroups() {
+    const res = await fetch('/api/graphs', {headers: {'Authorization': localStorage.getItem('token') || ''}});
+    const data = await res.json();
+    groups = data.groups || [];
+    allGraphs = data.graphs || [];
+    if (groups.length === 0) {
+      groups = [{ name: 'All', graphs: allGraphs }];
+    } else {
+      const grouped = new Set(groups.flatMap(g => g.graphs));
+      const ungrouped = allGraphs.filter(g => !grouped.has(g));
+      if (ungrouped.length) {
+        groups = [...groups, { name: 'Other', graphs: ungrouped }];
+      }
+    }
+  }
 
   async function fetchData() {
-    const res = await fetch('/api/data', {headers: {'Authorization': localStorage.getItem('token') || ''}});
-    const data = await res.json();
-    if (data.graphs) {
-      datasets = data.graphs;
-      groups = data.groups || [];
-    } else {
-      datasets = data;
-      groups = [];
+    const list = groups[activeTab]?.graphs || allGraphs;
+    if (!list || list.length === 0) {
+      datasets = {};
+      return;
     }
+    const res = await fetch('/api/data?graphs=' + encodeURIComponent(list.join(',')), {headers: {'Authorization': localStorage.getItem('token') || ''}});
+    const data = await res.json();
+    datasets = data.graphs ? data.graphs : data;
     await tick();
     drawAll();
   }
@@ -116,27 +133,23 @@
 
   }
 
-  onMount(fetchData);
+  onMount(async () => {
+    await fetchGroups();
+    fetchData();
+  });
   onDestroy(() => {
     if (timer) clearInterval(timer);
   });
 </script>
 
+<div id="tabs">
+  {#each groups as grp, i}
+    <button class:selected={i === activeTab} on:click={() => {activeTab = i; fetchData();}}>{grp.name}</button>
+  {/each}
+</div>
 <div id="dashboard">
-  {#if groups.length}
-    {#each groups as grp}
-      <h2>{grp.name}</h2>
-      <div class="group">
-        {#each grp.graphs as name}
-          <div class="chart-container">
-            <h3>{name}</h3>
-            <div id={"chart-" + safeId(name)}></div>
-          </div>
-        {/each}
-      </div>
-    {/each}
-  {:else}
-    {#each Object.keys(datasets) as name}
+  {#if groups[activeTab]}
+    {#each groups[activeTab].graphs as name}
       <div class="chart-container">
         <h3>{name}</h3>
         <div id={"chart-" + safeId(name)}></div>
@@ -163,12 +176,18 @@
     display: flex;
     flex-wrap: wrap;
   }
-  .group {
-    width: 100%;
-  }
   .chart-container {
     margin-right: 20px;
     margin-bottom: 20px;
+  }
+  #tabs {
+    margin-bottom: 10px;
+  }
+  #tabs button {
+    margin-right: 5px;
+  }
+  #tabs button.selected {
+    font-weight: bold;
   }
   #controls {
     margin-top: 10px;
