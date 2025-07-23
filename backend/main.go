@@ -1,20 +1,20 @@
 package main
 
 import (
-        "encoding/json"
-        "fmt"
-        "io"
-        "log"
-        "net/http"
-        "net/url"
-        "os"
-        "path/filepath"
-        "strings"
-        "time"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
-        "github.com/gosnmp/gosnmp"
-        bolt "go.etcd.io/bbolt"
-        "gopkg.in/yaml.v3"
+	"github.com/gosnmp/gosnmp"
+	bolt "go.etcd.io/bbolt"
+	"gopkg.in/yaml.v3"
 )
 
 const bucketName = "samples"
@@ -44,53 +44,85 @@ func main() {
 		}
 	}()
 
-http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-samples := readSamples(db)
-result := dataResponse{Graphs: map[string]dataset{}, Groups: cfg.Groups}
-for _, g := range cfg.Graphs {
-var combined []sample
-var colors map[string]string
-var cum map[string]bool
-for _, srcName := range g.Sources {
-if d, ok := samples[srcName]; ok {
-combined = append(combined, d...)
-for _, src := range cfg.Sources {
-if sourceName(src) == srcName {
-if src.Color != "" {
-if colors == nil {
-colors = map[string]string{}
-}
-colors[srcName] = src.Color
-}
-if src.Cum {
-if cum == nil {
-cum = map[string]bool{}
-}
-cum[srcName] = true
-}
-break
-}
-}
-}
-}
-if g.Timespan != "" {
-if dur, err := time.ParseDuration(g.Timespan); err == nil {
-cutoff := time.Now().Add(-dur).Unix()
-filtered := combined[:0]
-for _, s := range combined {
-if s.Timestamp >= cutoff {
-filtered = append(filtered, s)
-}
-}
-combined = filtered
-}
-}
-if len(combined) > 0 {
-result.Graphs[g.Name] = dataset{Data: combined, Colors: colors, Cum: cum}
-}
-}
-json.NewEncoder(w).Encode(result)
-})))
+	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// optional ?graphs=a,b,c parameter to limit returned graphs
+		reqGraphs := map[string]bool{}
+		if q := r.URL.Query().Get("graphs"); q != "" {
+			for _, name := range strings.Split(q, ",") {
+				reqGraphs[strings.TrimSpace(name)] = true
+			}
+		}
+
+		// collect required graph definitions and source names
+		var graphs []graphDef
+		neededSources := map[string]bool{}
+		for _, g := range cfg.Graphs {
+			if len(reqGraphs) > 0 && !reqGraphs[g.Name] {
+				continue
+			}
+			graphs = append(graphs, g)
+			for _, s := range g.Sources {
+				neededSources[s] = true
+			}
+		}
+
+		samples := readSamples(db, neededSources)
+		result := dataResponse{Graphs: map[string]dataset{}, Groups: cfg.Groups}
+		for _, g := range graphs {
+			var combined []sample
+			var colors map[string]string
+			var cum map[string]bool
+			for _, srcName := range g.Sources {
+				if d, ok := samples[srcName]; ok {
+					combined = append(combined, d...)
+					for _, src := range cfg.Sources {
+						if sourceName(src) == srcName {
+							if src.Color != "" {
+								if colors == nil {
+									colors = map[string]string{}
+								}
+								colors[srcName] = src.Color
+							}
+							if src.Cum {
+								if cum == nil {
+									cum = map[string]bool{}
+								}
+								cum[srcName] = true
+							}
+							break
+						}
+					}
+				}
+			}
+			if g.Timespan != "" {
+				if dur, err := time.ParseDuration(g.Timespan); err == nil {
+					cutoff := time.Now().Add(-dur).Unix()
+					filtered := combined[:0]
+					for _, s := range combined {
+						if s.Timestamp >= cutoff {
+							filtered = append(filtered, s)
+						}
+					}
+					combined = filtered
+				}
+			}
+			if len(combined) > 0 {
+				result.Graphs[g.Name] = dataset{Data: combined, Colors: colors, Cum: cum}
+			}
+		}
+		json.NewEncoder(w).Encode(result)
+	})))
+
+	http.Handle("/api/graphs", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var names []string
+		for _, g := range cfg.Graphs {
+			names = append(names, g.Name)
+		}
+		json.NewEncoder(w).Encode(struct {
+			Groups []graphGroup `json:"groups,omitempty"`
+			Graphs []string     `json:"graphs"`
+		}{Groups: cfg.Groups, Graphs: names})
+	})))
 
 	// database maintenance endpoints
 	http.Handle("/api/db/rename", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -168,16 +200,16 @@ type sample struct {
 }
 
 type dataset struct {
-        Units  string            `json:"units,omitempty"`
-        Type   string            `json:"type,omitempty"`
-        Data   []sample          `json:"data"`
-        Colors map[string]string `json:"colors,omitempty"`
-        Cum    map[string]bool   `json:"cumulative,omitempty"`
+	Units  string            `json:"units,omitempty"`
+	Type   string            `json:"type,omitempty"`
+	Data   []sample          `json:"data"`
+	Colors map[string]string `json:"colors,omitempty"`
+	Cum    map[string]bool   `json:"cumulative,omitempty"`
 }
 
 type dataResponse struct {
-        Graphs map[string]dataset `json:"graphs"`
-        Groups []graphGroup       `json:"groups,omitempty"`
+	Graphs map[string]dataset `json:"graphs"`
+	Groups []graphGroup       `json:"groups,omitempty"`
 }
 
 type pollSource struct {
@@ -193,17 +225,17 @@ type pollSource struct {
 }
 
 type pollConfig struct {
-        Sources   []pollSource `json:"sources" yaml:"sources"`
-        Graphs    []graphDef   `json:"graphs,omitempty" yaml:"graphs,omitempty"`
-        Groups    []graphGroup `json:"groups,omitempty" yaml:"groups,omitempty"`
-        Host      string       `json:"host" yaml:"host"`               // legacy single source
-        Community string       `json:"community" yaml:"community"`     // legacy single source
-        OID       string       `json:"oid" yaml:"oid"`                 // legacy single source
+	Sources   []pollSource `json:"sources" yaml:"sources"`
+	Graphs    []graphDef   `json:"graphs,omitempty" yaml:"graphs,omitempty"`
+	Groups    []graphGroup `json:"groups,omitempty" yaml:"groups,omitempty"`
+	Host      string       `json:"host" yaml:"host"`           // legacy single source
+	Community string       `json:"community" yaml:"community"` // legacy single source
+	OID       string       `json:"oid" yaml:"oid"`             // legacy single source
 }
 
 type graphGroup struct {
-        Name   string   `json:"name" yaml:"name"`
-        Graphs []string `json:"graphs" yaml:"graphs"`
+	Name   string   `json:"name" yaml:"name"`
+	Graphs []string `json:"graphs" yaml:"graphs"`
 }
 
 type graphDef struct {
@@ -220,21 +252,21 @@ func sourceName(src pollSource) string {
 }
 
 func loadPollConfig(path string) pollConfig {
-        b, err := os.ReadFile(path)
-        if err != nil {
-                log.Fatalf("read config: %v", err)
-        }
-        var c pollConfig
-        switch ext := filepath.Ext(path); ext {
-        case ".yaml", ".yml":
-                if err := yaml.Unmarshal(b, &c); err != nil {
-                        log.Fatalf("parse config: %v", err)
-                }
-        default:
-                if err := json.Unmarshal(b, &c); err != nil {
-                        log.Fatalf("parse config: %v", err)
-                }
-        }
+	b, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalf("read config: %v", err)
+	}
+	var c pollConfig
+	switch ext := filepath.Ext(path); ext {
+	case ".yaml", ".yml":
+		if err := yaml.Unmarshal(b, &c); err != nil {
+			log.Fatalf("parse config: %v", err)
+		}
+	default:
+		if err := json.Unmarshal(b, &c); err != nil {
+			log.Fatalf("parse config: %v", err)
+		}
+	}
 
 	if len(c.Sources) == 0 {
 		// fall back to legacy single source definition
@@ -302,7 +334,7 @@ func poll(src pollSource, db *bolt.DB) {
 	log.Printf("polled %s: %v", name, s)
 }
 
-func readSamples(db *bolt.DB) map[string][]sample {
+func readSamples(db *bolt.DB, filter map[string]bool) map[string][]sample {
 	result := map[string][]sample{}
 	db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
@@ -311,6 +343,10 @@ func readSamples(db *bolt.DB) map[string][]sample {
 		}
 		b.ForEach(func(k, v []byte) error {
 			if v != nil {
+				return nil
+			}
+			name := string(k)
+			if filter != nil && !filter[name] {
 				return nil
 			}
 			sb := b.Bucket(k)
@@ -325,7 +361,7 @@ func readSamples(db *bolt.DB) map[string][]sample {
 				}
 				return nil
 			})
-			result[string(k)] = list
+			result[name] = list
 			return nil
 		})
 		return nil
