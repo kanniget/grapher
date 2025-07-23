@@ -1,0 +1,69 @@
+sources:
+  - name: Internal sensor - Temp(C)
+    host: 192.168.1.253
+    community: public
+    oid: 1.3.6.1.4.1.20916.1.10.1.1.1.0
+    version: "1"
+    units: C
+    type: temperature
+    color: "#ff0000"
+  - name: External sensor - Temp(C)
+    host: 192.168.1.253
+    community: public
+    oid: 1.3.6.1.4.1.20916.1.10.1.2.1.0
+    version: "1"
+    units: C
+    type: temperature
+    color: "#0000ff"
+  - name: External sensor - Relative Humidity(%)
+    host: 192.168.1.253
+    community: public
+    oid: 1.3.6.1.4.1.20916.1.10.1.2.3.0
+    version: "1"
+    units: "%"
+    type: humidity
+    color: "#00aa00"
+
+graphs:
+  - name: Room vs Switch Output Temp
+    sources:
+      - Internal sensor - Temp(C)
+      - External sensor - Temp(C)
+    timespan: 24h
+  - name: Switch Output Temp vs Humidity
+    sources:
+      - External sensor - Temp(C)
+      - External sensor - Relative Humidity(%)
+    timespan: 24h
+  - name: Room Temp
+    sources:
+      - Internal sensor - Temp(C)
+    timespan: 72h
+  - name: Switch Output Temp
+    sources:
+      - External sensor - Temp(C)
+    timespan: 72h
+  - name: Humidity
+    sources:
+      - External sensor - Relative Humidity(%)
+    timespan: 72h
+  - name: Temps vs Humidity
+    sources:
+      - Internal sensor - Temp(C)
+      - External sensor - Temp(C)
+      - External sensor - Relative Humidity(%)
+    timespan: 24h
+
+groups:
+  - name: Temperatures
+    graphs:
+      - Room Temp
+      - Switch Output Temp
+  - name: Humidity
+    graphs:
+      - Humidity
+  - name: Comparisons
+    graphs:
+      - Room vs Switch Output Temp
+      - Switch Output Temp vs Humidity
+      - Temps vs Humidity

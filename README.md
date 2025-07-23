@@ -6,8 +6,8 @@ a graph to the user. OAuth2 authentication can be enabled via environment variab
 
 ## Backend
 
-The backend resides in `backend/` and reads its polling targets from a JSON configuration file.
-The path can be specified via the `CONFIG_PATH` environment variable (default `config.json`).
+The backend resides in `backend/` and reads its polling targets from a configuration file.
+Both JSON and YAML formats are supported. The path can be specified via the `CONFIG_PATH` environment variable (default `config.json`).
 The file should list one or more polling sources. Each source can optionally define a `version` field to select the SNMP protocol version (supported values are `1` and `2c`; default is `1`):
 
 ```json
@@ -49,6 +49,19 @@ historical data is returned. The value is a Go style duration such as `24h`:
     }
   ]
 }
+```
+Graphs can optionally be arranged into named groups when using a YAML configuration:
+
+```yaml
+sources:
+  - { name: "Internal sensor", ... }
+graphs:
+  - name: "Room Temp"
+    sources: ["Internal sensor"]
+groups:
+  - name: Temperatures
+    graphs:
+      - "Room Temp"
 ```
 
 Additional options can still be set through environment variables:
