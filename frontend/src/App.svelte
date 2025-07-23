@@ -34,7 +34,7 @@
     const width = 600 - margin.left - margin.right;
     const height = 300 - margin.top - margin.bottom;
     const scale = 0.01; // sensor values are 100x larger than the displayed units
-    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const defaultColor = d3.scaleOrdinal(d3.schemeCategory10);
 
     for (const [name, info] of Object.entries(datasets)) {
       const data = info.data || [];
@@ -65,13 +65,15 @@
 
       const sources = Array.from(new Set(data.map(d => d.source)));
       if (sources.length > 1) {
-        color.domain(sources);
         const groups = d3.group(data, d => d.source);
         for (const [src, values] of groups) {
-          g.append('path').datum(values).attr('fill', 'none').attr('stroke', color(src)).attr('d', line);
+          let c = (info.colors && info.colors[src]) ? info.colors[src] : defaultColor(src);
+          g.append('path').datum(values).attr('fill', 'none').attr('stroke', c).attr('d', line);
         }
       } else {
-        g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
+        const src = sources[0];
+        let c = (info.colors && info.colors[src]) ? info.colors[src] : 'steelblue';
+        g.append('path').datum(data).attr('fill', 'none').attr('stroke', c).attr('d', line);
       }
 
       g.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));

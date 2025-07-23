@@ -7,26 +7,29 @@
       "oid": "1.3.6.1.4.1.20916.1.10.1.1.1.0",
       "version": "1",
       "units": "C",
-      "type": "temperature"
-    },
-    {
-      "name": "External sensor - Temp(C)",
+      "type": "temperature",
+      "color": "#ff0000"
+      },
+      {
+        "name": "External sensor - Temp(C)",
       "host": "192.168.1.253",
       "community": "public",
       "oid": "1.3.6.1.4.1.20916.1.10.1.2.1.0",
       "version": "1",
       "units": "C",
-      "type": "temperature"
-    },
-    {
-      "name": "External sensor - Relative Humidity(%)",
+      "type": "temperature",
+      "color": "#0000ff"
+      },
+      {
+        "name": "External sensor - Relative Humidity(%)",
       "host": "192.168.1.253",
       "community": "public",
       "oid": "1.3.6.1.4.1.20916.1.10.1.2.3.0",
       "version": "1",
       "units": "%",
-      "type": "humidity"
-    }
+      "type": "humidity",
+      "color": "#00aa00"
+      }
   ],
   "graphs": [
     {

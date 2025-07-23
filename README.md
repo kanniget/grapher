@@ -20,11 +20,14 @@ The file should list one or more polling sources. Each source can optionally def
       "oid": ".1.3.6.1.2.1.1.3.0",
       "version": "2c",
       "units": "C",
-      "type": "temperature"
+      "type": "temperature",
+      "color": "#ff0000"
     }
   ]
 }
 ```
+The optional `color` field controls the colour used for this source when drawing graphs.
+Any CSS colour value is allowed.
 
 You can optionally define comparison graphs which combine multiple sources in a
 single plot:

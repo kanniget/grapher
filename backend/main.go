@@ -51,6 +51,9 @@ func main() {
                                 if sourceName(src) == name {
                                         ds.Units = src.Units
                                         ds.Type = src.Type
+                                        if src.Color != "" {
+                                                ds.Colors = map[string]string{name: src.Color}
+                                        }
                                         break
                                 }
                         }
@@ -58,13 +61,23 @@ func main() {
                 }
                 for _, g := range cfg.Graphs {
                         var combined []sample
+                        var colors map[string]string
                         for _, srcName := range g.Sources {
                                 if d, ok := samples[srcName]; ok {
                                         combined = append(combined, d...)
+                                        for _, src := range cfg.Sources {
+                                                if sourceName(src) == srcName && src.Color != "" {
+                                                        if colors == nil {
+                                                                colors = map[string]string{}
+                                                        }
+                                                        colors[srcName] = src.Color
+                                                        break
+                                                }
+                                        }
                                 }
                         }
                         if len(combined) > 0 {
-                                result[g.Name] = dataset{Data: combined}
+                                result[g.Name] = dataset{Data: combined, Colors: colors}
                         }
                 }
                 json.NewEncoder(w).Encode(result)
@@ -146,19 +159,21 @@ type sample struct {
 }
 
 type dataset struct {
-	Units string   `json:"units,omitempty"`
-	Type  string   `json:"type,omitempty"`
-	Data  []sample `json:"data"`
+        Units  string            `json:"units,omitempty"`
+        Type   string            `json:"type,omitempty"`
+        Data   []sample          `json:"data"`
+        Colors map[string]string `json:"colors,omitempty"`
 }
 
 type pollSource struct {
-	Name      string `json:"name"`
-	Host      string `json:"host"`
-	Community string `json:"community"`
-	OID       string `json:"oid"`
-	Units     string `json:"units,omitempty"`
-	Type      string `json:"type,omitempty"`
-	Version   string `json:"version,omitempty"`
+        Name      string `json:"name"`
+        Host      string `json:"host"`
+        Community string `json:"community"`
+        OID       string `json:"oid"`
+        Units     string `json:"units,omitempty"`
+        Type      string `json:"type,omitempty"`
+        Version   string `json:"version,omitempty"`
+        Color     string `json:"color,omitempty"`
 }
 
 type pollConfig struct {
