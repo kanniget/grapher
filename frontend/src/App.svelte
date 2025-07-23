@@ -2,6 +2,8 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import * as d3 from 'd3';
   import { Tabs, TabItem, Button, Select } from 'flowbite-svelte';
+  import FlowbiteProvider from './lib/FlowbiteProvider.svelte';
+  import Container from './lib/Container.svelte';
 
   let datasets = {};
   let groups = [];
@@ -168,36 +170,40 @@
   });
 </script>
 
-<Tabs style="underline">
-  {#each groups as grp, i}
-    <TabItem
-      title={grp.name}
-      open={i === activeTab}
-      on:click={() => {
-        activeTab = i;
-        fetchData();
-      }}
-    />
-  {/each}
-</Tabs>
-<div id="dashboard">
-  {#if groups[activeTab]}
-      {#each groups[activeTab].graphs as name}
-        <div class="chart-container">
-          <h3>{name}</h3>
-          <div id={"chart-" + safeId(name)}></div>
-          <div class="legend" id={"legend-" + safeId(name)}></div>
-        </div>
+<FlowbiteProvider>
+  <Container>
+    <Tabs style="underline">
+      {#each groups as grp, i}
+        <TabItem
+          title={grp.name}
+          open={i === activeTab}
+          on:click={() => {
+            activeTab = i;
+            fetchData();
+          }}
+        />
       {/each}
-    {/if}
-  </div>
-<div id="controls" class="flex items-center space-x-4 mt-4">
-  <Button on:click={fetchData}>Refresh</Button>
-  <label class="flex items-center space-x-2">
-    <span>Auto refresh:</span>
-    <Select class="w-28" items={refreshOptions} bind:value={refreshInterval} />
-  </label>
-</div>
+    </Tabs>
+    <div id="dashboard">
+      {#if groups[activeTab]}
+          {#each groups[activeTab].graphs as name}
+            <div class="chart-container">
+              <h3>{name}</h3>
+              <div id={"chart-" + safeId(name)}></div>
+              <div class="legend" id={"legend-" + safeId(name)}></div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    <div id="controls" class="flex items-center space-x-4 mt-4">
+      <Button on:click={fetchData}>Refresh</Button>
+      <label class="flex items-center space-x-2">
+        <span>Auto refresh:</span>
+        <Select class="w-28" items={refreshOptions} bind:value={refreshInterval} />
+      </label>
+    </div>
+  </Container>
+</FlowbiteProvider>
 
 <style>
   #dashboard {
