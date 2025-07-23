@@ -8,7 +8,7 @@ a graph to the user. OAuth2 authentication can be enabled via environment variab
 
 The backend resides in `backend/` and reads its polling targets from a JSON configuration file.
 The path can be specified via the `CONFIG_PATH` environment variable (default `config.json`).
-The file should list one or more polling sources:
+The file should list one or more polling sources. Each source can optionally define a `version` field to select the SNMP protocol version (supported values are `1` and `2c`; default is `1`):
 
 ```json
 {
@@ -18,6 +18,7 @@ The file should list one or more polling sources:
       "host": "localhost",
       "community": "public",
       "oid": ".1.3.6.1.2.1.1.3.0",
+      "version": "2c",
       "units": "C",
       "type": "temperature"
     }

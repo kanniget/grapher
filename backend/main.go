@@ -147,6 +147,7 @@ type pollSource struct {
 	OID       string `json:"oid"`
 	Units     string `json:"units,omitempty"`
 	Type      string `json:"type,omitempty"`
+	Version   string `json:"version,omitempty"`
 }
 
 type pollConfig struct {
@@ -189,6 +190,9 @@ func loadPollConfig(path string) pollConfig {
 		if c.Sources[i].OID == "" {
 			c.Sources[i].OID = ".1.3.6.1.2.1.1.3.0"
 		}
+		if c.Sources[i].Version == "" {
+			c.Sources[i].Version = "1"
+		}
 	}
 
 	return c
@@ -199,7 +203,7 @@ func poll(src pollSource, db *bolt.DB) {
 		Target:    src.Host,
 		Port:      161,
 		Community: src.Community,
-		Version:   gosnmp.Version1,
+		Version:   parseSNMPVersion(src.Version),
 		Timeout:   time.Duration(2) * time.Second,
 		Retries:   1,
 	}
@@ -372,6 +376,20 @@ func getEnvDuration(key string, def time.Duration) time.Duration {
 		}
 	}
 	return def
+}
+
+func parseSNMPVersion(v string) gosnmp.SnmpVersion {
+	switch strings.ToLower(v) {
+	case "", "1", "v1", "version1":
+		return gosnmp.Version1
+	case "2", "2c", "v2c", "version2", "version2c":
+		return gosnmp.Version2c
+	case "3", "v3", "version3":
+		return gosnmp.Version3
+	default:
+		log.Printf("unknown SNMP version %q, defaulting to v1", v)
+		return gosnmp.Version1
+	}
 }
 
 func toInt(v interface{}) int64 {
