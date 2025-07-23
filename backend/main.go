@@ -42,46 +42,58 @@ func main() {
 		}
 	}()
 
-        http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-                samples := readSamples(db)
-                result := map[string]dataset{}
-                for name, data := range samples {
-                        ds := dataset{Data: data}
-                        for _, src := range cfg.Sources {
-                                if sourceName(src) == name {
-                                        ds.Units = src.Units
-                                        ds.Type = src.Type
-                                        if src.Color != "" {
-                                                ds.Colors = map[string]string{name: src.Color}
-                                        }
-                                        break
-                                }
-                        }
-                        result[name] = ds
-                }
-                for _, g := range cfg.Graphs {
-                        var combined []sample
-                        var colors map[string]string
-                        for _, srcName := range g.Sources {
-                                if d, ok := samples[srcName]; ok {
-                                        combined = append(combined, d...)
-                                        for _, src := range cfg.Sources {
-                                                if sourceName(src) == srcName && src.Color != "" {
-                                                        if colors == nil {
-                                                                colors = map[string]string{}
-                                                        }
-                                                        colors[srcName] = src.Color
-                                                        break
-                                                }
-                                        }
-                                }
-                        }
-                        if len(combined) > 0 {
-                                result[g.Name] = dataset{Data: combined, Colors: colors}
-                        }
-                }
-                json.NewEncoder(w).Encode(result)
-        })))
+	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		samples := readSamples(db)
+		result := map[string]dataset{}
+		for name, data := range samples {
+			ds := dataset{Data: data}
+			for _, src := range cfg.Sources {
+				if sourceName(src) == name {
+					ds.Units = src.Units
+					ds.Type = src.Type
+					if src.Color != "" {
+						ds.Colors = map[string]string{name: src.Color}
+					}
+					break
+				}
+			}
+			result[name] = ds
+		}
+		for _, g := range cfg.Graphs {
+			var combined []sample
+			var colors map[string]string
+			for _, srcName := range g.Sources {
+				if d, ok := samples[srcName]; ok {
+					combined = append(combined, d...)
+					for _, src := range cfg.Sources {
+						if sourceName(src) == srcName && src.Color != "" {
+							if colors == nil {
+								colors = map[string]string{}
+							}
+							colors[srcName] = src.Color
+							break
+						}
+					}
+				}
+			}
+			if g.Timespan != "" {
+				if dur, err := time.ParseDuration(g.Timespan); err == nil {
+					cutoff := time.Now().Add(-dur).Unix()
+					filtered := combined[:0]
+					for _, s := range combined {
+						if s.Timestamp >= cutoff {
+							filtered = append(filtered, s)
+						}
+					}
+					combined = filtered
+				}
+			}
+			if len(combined) > 0 {
+				result[g.Name] = dataset{Data: combined, Colors: colors}
+			}
+		}
+		json.NewEncoder(w).Encode(result)
+	})))
 
 	// database maintenance endpoints
 	http.Handle("/api/db/rename", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -159,34 +171,35 @@ type sample struct {
 }
 
 type dataset struct {
-        Units  string            `json:"units,omitempty"`
-        Type   string            `json:"type,omitempty"`
-        Data   []sample          `json:"data"`
-        Colors map[string]string `json:"colors,omitempty"`
+	Units  string            `json:"units,omitempty"`
+	Type   string            `json:"type,omitempty"`
+	Data   []sample          `json:"data"`
+	Colors map[string]string `json:"colors,omitempty"`
 }
 
 type pollSource struct {
-        Name      string `json:"name"`
-        Host      string `json:"host"`
-        Community string `json:"community"`
-        OID       string `json:"oid"`
-        Units     string `json:"units,omitempty"`
-        Type      string `json:"type,omitempty"`
-        Version   string `json:"version,omitempty"`
-        Color     string `json:"color,omitempty"`
+	Name      string `json:"name"`
+	Host      string `json:"host"`
+	Community string `json:"community"`
+	OID       string `json:"oid"`
+	Units     string `json:"units,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Color     string `json:"color,omitempty"`
 }
 
 type pollConfig struct {
-        Sources   []pollSource `json:"sources"`
-        Graphs    []graphDef   `json:"graphs,omitempty"`
-        Host      string       `json:"host"`      // legacy single source
-        Community string       `json:"community"` // legacy single source
-        OID       string       `json:"oid"`       // legacy single source
+	Sources   []pollSource `json:"sources"`
+	Graphs    []graphDef   `json:"graphs,omitempty"`
+	Host      string       `json:"host"`      // legacy single source
+	Community string       `json:"community"` // legacy single source
+	OID       string       `json:"oid"`       // legacy single source
 }
 
 type graphDef struct {
-        Name    string   `json:"name"`
-        Sources []string `json:"sources"`
+	Name     string   `json:"name"`
+	Sources  []string `json:"sources"`
+	Timespan string   `json:"timespan,omitempty"`
 }
 
 func sourceName(src pollSource) string {

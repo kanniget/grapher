@@ -30,7 +30,8 @@ The optional `color` field controls the colour used for this source when drawing
 Any CSS colour value is allowed.
 
 You can optionally define comparison graphs which combine multiple sources in a
-single plot:
+single plot. Each graph may also specify a `timespan` field limiting how much
+historical data is returned. The value is a Go style duration such as `24h`:
 
 ```json
 {
@@ -38,7 +39,11 @@ single plot:
     { "name": "Internal sensor", ... }
   ],
   "graphs": [
-    { "name": "Inside vs Outside", "sources": ["Internal sensor", "External sensor"] }
+    {
+      "name": "Inside vs Outside",
+      "sources": ["Internal sensor", "External sensor"],
+      "timespan": "24h"
+    }
   ]
 }
 ```

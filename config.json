@@ -37,13 +37,15 @@
       "sources": [
         "Internal sensor - Temp(C)",
         "External sensor - Temp(C)"
-      ]
+      ],
+      "timespan": "24h"
     },{
       "name": "Outside Temp vs Humidity",
       "sources": [
         "External sensor - Temp(C)",
         "External sensor - Relative Humidity(%)"
-      ]
+      ],
+      "timespan": "24h"
     }
   ]
 }
