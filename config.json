@@ -111,5 +111,34 @@
       ],
       "timespan": "24h"
     }
+  ],
+  "groups": [
+    {
+      "name": "Temperatures",
+      "graphs": [
+        "Room Temp",
+        "Switch Output Temp"
+      ]
+    },
+    {
+      "name": "Humidity",
+      "graphs": [
+        "Humidity"
+      ]
+    },
+    {
+      "name": "Comparisons",
+      "graphs": [
+        "Room vs Switch Output Temp",
+        "Switch Output Temp vs Humidity",
+        "Temps vs Humidity"
+      ]
+    },
+    {
+      "name": "HP Switch Traffic",
+      "graphs": [
+        "HP9000 - Port 1 Traffic"
+      ]
+    }
   ]
 }
