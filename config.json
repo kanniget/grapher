@@ -27,5 +27,14 @@
       "units": "%",
       "type": "humidity"
     }
+  ],
+  "graphs": [
+    {
+      "name": "Inside vs Outside Temp",
+      "sources": [
+        "Internal sensor - Temp(C)",
+        "External sensor - Temp(C)"
+      ]
+    }
   ]
 }
