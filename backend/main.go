@@ -1,18 +1,20 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"time"
+        "encoding/json"
+        "fmt"
+        "io"
+        "log"
+        "net/http"
+        "net/url"
+        "os"
+        "path/filepath"
+        "strings"
+        "time"
 
-	"github.com/gosnmp/gosnmp"
-	bolt "go.etcd.io/bbolt"
+        "github.com/gosnmp/gosnmp"
+        bolt "go.etcd.io/bbolt"
+        "gopkg.in/yaml.v3"
 )
 
 const bucketName = "samples"
@@ -42,53 +44,53 @@ func main() {
 		}
 	}()
 
-	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		samples := readSamples(db)
-		result := map[string]dataset{}
-		for _, g := range cfg.Graphs {
-			var combined []sample
-			var colors map[string]string
-			var cum map[string]bool
-			for _, srcName := range g.Sources {
-				if d, ok := samples[srcName]; ok {
-					combined = append(combined, d...)
-					for _, src := range cfg.Sources {
-						if sourceName(src) == srcName {
-							if src.Color != "" {
-								if colors == nil {
-									colors = map[string]string{}
-								}
-								colors[srcName] = src.Color
-							}
-							if src.Cum {
-								if cum == nil {
-									cum = map[string]bool{}
-								}
-								cum[srcName] = true
-							}
-							break
-						}
-					}
-				}
-			}
-			if g.Timespan != "" {
-				if dur, err := time.ParseDuration(g.Timespan); err == nil {
-					cutoff := time.Now().Add(-dur).Unix()
-					filtered := combined[:0]
-					for _, s := range combined {
-						if s.Timestamp >= cutoff {
-							filtered = append(filtered, s)
-						}
-					}
-					combined = filtered
-				}
-			}
-			if len(combined) > 0 {
-				result[g.Name] = dataset{Data: combined, Colors: colors, Cum: cum}
-			}
-		}
-		json.NewEncoder(w).Encode(result)
-	})))
+http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+samples := readSamples(db)
+result := dataResponse{Graphs: map[string]dataset{}, Groups: cfg.Groups}
+for _, g := range cfg.Graphs {
+var combined []sample
+var colors map[string]string
+var cum map[string]bool
+for _, srcName := range g.Sources {
+if d, ok := samples[srcName]; ok {
+combined = append(combined, d...)
+for _, src := range cfg.Sources {
+if sourceName(src) == srcName {
+if src.Color != "" {
+if colors == nil {
+colors = map[string]string{}
+}
+colors[srcName] = src.Color
+}
+if src.Cum {
+if cum == nil {
+cum = map[string]bool{}
+}
+cum[srcName] = true
+}
+break
+}
+}
+}
+}
+if g.Timespan != "" {
+if dur, err := time.ParseDuration(g.Timespan); err == nil {
+cutoff := time.Now().Add(-dur).Unix()
+filtered := combined[:0]
+for _, s := range combined {
+if s.Timestamp >= cutoff {
+filtered = append(filtered, s)
+}
+}
+combined = filtered
+}
+}
+if len(combined) > 0 {
+result.Graphs[g.Name] = dataset{Data: combined, Colors: colors, Cum: cum}
+}
+}
+json.NewEncoder(w).Encode(result)
+})))
 
 	// database maintenance endpoints
 	http.Handle("/api/db/rename", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -166,11 +168,16 @@ type sample struct {
 }
 
 type dataset struct {
-	Units  string            `json:"units,omitempty"`
-	Type   string            `json:"type,omitempty"`
-	Data   []sample          `json:"data"`
-	Colors map[string]string `json:"colors,omitempty"`
-	Cum    map[string]bool   `json:"cumulative,omitempty"`
+        Units  string            `json:"units,omitempty"`
+        Type   string            `json:"type,omitempty"`
+        Data   []sample          `json:"data"`
+        Colors map[string]string `json:"colors,omitempty"`
+        Cum    map[string]bool   `json:"cumulative,omitempty"`
+}
+
+type dataResponse struct {
+        Graphs map[string]dataset `json:"graphs"`
+        Groups []graphGroup       `json:"groups,omitempty"`
 }
 
 type pollSource struct {
@@ -186,11 +193,17 @@ type pollSource struct {
 }
 
 type pollConfig struct {
-	Sources   []pollSource `json:"sources"`
-	Graphs    []graphDef   `json:"graphs,omitempty"`
-	Host      string       `json:"host"`      // legacy single source
-	Community string       `json:"community"` // legacy single source
-	OID       string       `json:"oid"`       // legacy single source
+        Sources   []pollSource `json:"sources" yaml:"sources"`
+        Graphs    []graphDef   `json:"graphs,omitempty" yaml:"graphs,omitempty"`
+        Groups    []graphGroup `json:"groups,omitempty" yaml:"groups,omitempty"`
+        Host      string       `json:"host" yaml:"host"`               // legacy single source
+        Community string       `json:"community" yaml:"community"`     // legacy single source
+        OID       string       `json:"oid" yaml:"oid"`                 // legacy single source
+}
+
+type graphGroup struct {
+        Name   string   `json:"name" yaml:"name"`
+        Graphs []string `json:"graphs" yaml:"graphs"`
 }
 
 type graphDef struct {
@@ -207,14 +220,21 @@ func sourceName(src pollSource) string {
 }
 
 func loadPollConfig(path string) pollConfig {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		log.Fatalf("read config: %v", err)
-	}
-	var c pollConfig
-	if err := json.Unmarshal(b, &c); err != nil {
-		log.Fatalf("parse config: %v", err)
-	}
+        b, err := os.ReadFile(path)
+        if err != nil {
+                log.Fatalf("read config: %v", err)
+        }
+        var c pollConfig
+        switch ext := filepath.Ext(path); ext {
+        case ".yaml", ".yml":
+                if err := yaml.Unmarshal(b, &c); err != nil {
+                        log.Fatalf("parse config: %v", err)
+                }
+        default:
+                if err := json.Unmarshal(b, &c); err != nil {
+                        log.Fatalf("parse config: %v", err)
+                }
+        }
 
 	if len(c.Sources) == 0 {
 		// fall back to legacy single source definition

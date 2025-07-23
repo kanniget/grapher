@@ -3,12 +3,20 @@
   import * as d3 from 'd3';
 
   let datasets = {};
+  let groups = [];
   let refreshInterval = 0; // seconds; 0 disables auto-refresh
   let timer;
 
   async function fetchData() {
     const res = await fetch('/api/data', {headers: {'Authorization': localStorage.getItem('token') || ''}});
-    datasets = await res.json();
+    const data = await res.json();
+    if (data.graphs) {
+      datasets = data.graphs;
+      groups = data.groups || [];
+    } else {
+      datasets = data;
+      groups = [];
+    }
     await tick();
     drawAll();
   }
@@ -115,12 +123,26 @@
 </script>
 
 <div id="dashboard">
-  {#each Object.keys(datasets) as name}
-    <div class="chart-container">
-      <h3>{name}</h3>
-      <div id={"chart-" + safeId(name)}></div>
-    </div>
-  {/each}
+  {#if groups.length}
+    {#each groups as grp}
+      <h2>{grp.name}</h2>
+      <div class="group">
+        {#each grp.graphs as name}
+          <div class="chart-container">
+            <h3>{name}</h3>
+            <div id={"chart-" + safeId(name)}></div>
+          </div>
+        {/each}
+      </div>
+    {/each}
+  {:else}
+    {#each Object.keys(datasets) as name}
+      <div class="chart-container">
+        <h3>{name}</h3>
+        <div id={"chart-" + safeId(name)}></div>
+      </div>
+    {/each}
+  {/if}
 </div>
 <div id="controls">
   <button on:click={fetchData}>Refresh</button>
@@ -140,6 +162,9 @@
   #dashboard {
     display: flex;
     flex-wrap: wrap;
+  }
+  .group {
+    width: 100%;
   }
   .chart-container {
     margin-right: 20px;
