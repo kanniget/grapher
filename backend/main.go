@@ -42,22 +42,33 @@ func main() {
 		}
 	}()
 
-	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		samples := readSamples(db)
-		result := map[string]dataset{}
-		for name, data := range samples {
-			ds := dataset{Data: data}
-			for _, src := range cfg.Sources {
-				if sourceName(src) == name {
-					ds.Units = src.Units
-					ds.Type = src.Type
-					break
-				}
-			}
-			result[name] = ds
-		}
-		json.NewEncoder(w).Encode(result)
-	})))
+        http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                samples := readSamples(db)
+                result := map[string]dataset{}
+                for name, data := range samples {
+                        ds := dataset{Data: data}
+                        for _, src := range cfg.Sources {
+                                if sourceName(src) == name {
+                                        ds.Units = src.Units
+                                        ds.Type = src.Type
+                                        break
+                                }
+                        }
+                        result[name] = ds
+                }
+                for _, g := range cfg.Graphs {
+                        var combined []sample
+                        for _, srcName := range g.Sources {
+                                if d, ok := samples[srcName]; ok {
+                                        combined = append(combined, d...)
+                                }
+                        }
+                        if len(combined) > 0 {
+                                result[g.Name] = dataset{Data: combined}
+                        }
+                }
+                json.NewEncoder(w).Encode(result)
+        })))
 
 	// database maintenance endpoints
 	http.Handle("/api/db/rename", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -151,10 +162,16 @@ type pollSource struct {
 }
 
 type pollConfig struct {
-	Sources   []pollSource `json:"sources"`
-	Host      string       `json:"host"`      // legacy single source
-	Community string       `json:"community"` // legacy single source
-	OID       string       `json:"oid"`       // legacy single source
+        Sources   []pollSource `json:"sources"`
+        Graphs    []graphDef   `json:"graphs,omitempty"`
+        Host      string       `json:"host"`      // legacy single source
+        Community string       `json:"community"` // legacy single source
+        OID       string       `json:"oid"`       // legacy single source
+}
+
+type graphDef struct {
+        Name    string   `json:"name"`
+        Sources []string `json:"sources"`
 }
 
 func sourceName(src pollSource) string {

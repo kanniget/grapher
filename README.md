@@ -26,6 +26,20 @@ The file should list one or more polling sources. Each source can optionally def
 }
 ```
 
+You can optionally define comparison graphs which combine multiple sources in a
+single plot:
+
+```json
+{
+  "sources": [
+    { "name": "Internal sensor", ... }
+  ],
+  "graphs": [
+    { "name": "Inside vs Outside", "sources": ["Internal sensor", "External sensor"] }
+  ]
+}
+```
+
 Additional options can still be set through environment variables:
 
 - `POLL_INTERVAL` – polling interval (e.g. `30s`)

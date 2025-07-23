@@ -34,6 +34,7 @@
     const width = 600 - margin.left - margin.right;
     const height = 300 - margin.top - margin.bottom;
     const scale = 0.01; // sensor values are 100x larger than the displayed units
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
 
     for (const [name, info] of Object.entries(datasets)) {
       const data = info.data || [];
@@ -50,10 +51,10 @@
       }
       g.selectAll('*').remove();
       if (!data.length) continue;
-      const x = d3.scaleTime().range([0, width]);
-      const y = d3.scaleLinear().range([height, 0]);
       data.forEach(d => { d.date = new Date(d.timestamp * 1000); });
+      const x = d3.scaleTime().range([0, width]);
       x.domain(d3.extent(data, d => d.date));
+      const y = d3.scaleLinear().range([height, 0]);
       const minVal = d3.min(data, d => d.value * scale);
       const maxVal = d3.max(data, d => d.value * scale);
       const padding = (maxVal - minVal) * 0.1;
@@ -61,7 +62,18 @@
       const line = d3.line()
         .x(d => x(d.date))
         .y(d => y(d.value * scale));
-      g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
+
+      const sources = Array.from(new Set(data.map(d => d.source)));
+      if (sources.length > 1) {
+        color.domain(sources);
+        const groups = d3.group(data, d => d.source);
+        for (const [src, values] of groups) {
+          g.append('path').datum(values).attr('fill', 'none').attr('stroke', color(src)).attr('d', line);
+        }
+      } else {
+        g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
+      }
+
       g.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
       g.append('g').call(d3.axisLeft(y).tickFormat(d3.format('.2f')));
       let label = name;
@@ -75,33 +87,6 @@
         .attr('text-anchor', 'middle')
         .text(label);
     }
-
-
-    g.selectAll('*').remove();
-    const ds = datasets[selected] || {};
-    const data = ds.data || ds;
-    if (!data || !data.length) return;
-    const x = d3.scaleTime().range([0, width]);
-    const y = d3.scaleLinear().range([height, 0]);
-    data.forEach(d => { d.date = new Date(d.timestamp * 1000); });
-    x.domain(d3.extent(data, d => d.date));
-    y.domain([0, d3.max(data, d => d.value)]);
-    const line = d3.line()
-      .x(d => x(d.date))
-      .y(d => y(d.value));
-    g.append('path').datum(data).attr('fill', 'none').attr('stroke', 'steelblue').attr('d', line);
-    g.append('g').attr('transform', `translate(0,${height})`).call(d3.axisBottom(x));
-    g.append('g').call(d3.axisLeft(y));
-    const labelParts = [];
-    if (ds.type) labelParts.push(ds.type);
-    if (ds.units) labelParts.push(`(${ds.units})`);
-    const yLabel = labelParts.join(' ');
-
-    g.append('text')
-      .attr('x', width / 2)
-      .attr('y', height + margin.bottom + 15)
-      .attr('text-anchor', 'middle')
-      .text(yLabel);
 
   }
 
