@@ -45,20 +45,6 @@ func main() {
 	http.Handle("/api/data", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		samples := readSamples(db)
 		result := map[string]dataset{}
-		for name, data := range samples {
-			ds := dataset{Data: data}
-			for _, src := range cfg.Sources {
-				if sourceName(src) == name {
-					ds.Units = src.Units
-					ds.Type = src.Type
-					if src.Color != "" {
-						ds.Colors = map[string]string{name: src.Color}
-					}
-					break
-				}
-			}
-			result[name] = ds
-		}
 		for _, g := range cfg.Graphs {
 			var combined []sample
 			var colors map[string]string
