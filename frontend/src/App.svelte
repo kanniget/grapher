@@ -91,6 +91,7 @@
       const type = info.type || '';
       let container = d3.select(`#chart-${safeId(name)}`);
       let svg = container.select('svg');
+      let legendDiv = d3.select(`#legend-${safeId(name)}`);
       let g;
       if (svg.empty()) {
         svg = container.append('svg').attr('width', 600).attr('height', 300);
@@ -113,15 +114,19 @@
         .y(d => y(d.value * scale));
 
       const sources = Array.from(new Set(data.map(d => d.source)));
+      const colorFor = src => {
+        if (info.colors && info.colors[src]) return info.colors[src];
+        return sources.length > 1 ? defaultColor(src) : 'steelblue';
+      };
       if (sources.length > 1) {
         const groups = d3.group(data, d => d.source);
         for (const [src, values] of groups) {
-          let c = (info.colors && info.colors[src]) ? info.colors[src] : defaultColor(src);
+          let c = colorFor(src);
           g.append('path').datum(values).attr('fill', 'none').attr('stroke', c).attr('d', line);
         }
       } else {
         const src = sources[0];
-        let c = (info.colors && info.colors[src]) ? info.colors[src] : 'steelblue';
+        let c = colorFor(src);
         g.append('path').datum(data).attr('fill', 'none').attr('stroke', c).attr('d', line);
       }
 
@@ -137,6 +142,18 @@
         .attr('y', height + margin.bottom + 15)
         .attr('text-anchor', 'middle')
         .text(label);
+
+      // update legend
+      legendDiv.selectAll('*').remove();
+      const items = legendDiv.selectAll('.legend-item')
+        .data(sources)
+        .enter()
+        .append('div')
+        .attr('class', 'legend-item');
+      items.append('span')
+        .attr('class', 'legend-color')
+        .style('background-color', d => colorFor(d));
+      items.append('span').text(d => d);
     }
 
   }
@@ -164,14 +181,15 @@
 </Tabs>
 <div id="dashboard">
   {#if groups[activeTab]}
-    {#each groups[activeTab].graphs as name}
-      <div class="chart-container">
-        <h3>{name}</h3>
-        <div id={"chart-" + safeId(name)}></div>
-      </div>
-    {/each}
-  {/if}
-</div>
+      {#each groups[activeTab].graphs as name}
+        <div class="chart-container">
+          <h3>{name}</h3>
+          <div id={"chart-" + safeId(name)}></div>
+          <div class="legend" id={"legend-" + safeId(name)}></div>
+        </div>
+      {/each}
+    {/if}
+  </div>
 <div id="controls" class="flex items-center space-x-4 mt-4">
   <Button on:click={fetchData}>Refresh</Button>
   <label class="flex items-center space-x-2">
@@ -188,5 +206,21 @@
   .chart-container {
     margin-right: 20px;
     margin-bottom: 20px;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+  }
+  .legend-color {
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
   }
 </style>
