@@ -1,23 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
-	"time"
-
-	bolt "go.etcd.io/bbolt"
+	"strings"
 )
-
-const bucketName = "samples"
-
-type sample struct {
-	Timestamp int64   `json:"timestamp"`
-	Value     float64 `json:"value"`
-	Source    string  `json:"source"`
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -26,21 +19,8 @@ func main() {
 	}
 	cmd := os.Args[1]
 
-	dbPath := flag.String("db", getEnv("DB_PATH", "data.db"), "path to database")
+	addr := flag.String("addr", getEnv("SERVER_ADDR", "http://localhost:8080"), "server address")
 	flag.CommandLine.Parse(os.Args[2:])
-
-	fmt.Printf("Try to open: %s    ----> ", *dbPath)
-
-	// BoltDB obtains an exclusive file lock when opening the database.
-	// Without a timeout this call blocks indefinitely if another process
-	// already holds the lock (e.g. the server is running). Set a small
-	// timeout so we fail fast instead of hanging.
-	db, err := bolt.Open(*dbPath, 0600, &bolt.Options{Timeout: time.Second})
-	if err != nil {
-		log.Fatalf("open db: %v", err)
-	}
-	fmt.Print("open\n")
-	defer db.Close()
 
 	switch cmd {
 	case "rename":
@@ -49,7 +29,7 @@ func main() {
 			os.Exit(1)
 		}
 		from, to := flag.Arg(0), flag.Arg(1)
-		if err := renameSource(db, from, to); err != nil {
+		if err := renameSource(*addr, from, to); err != nil {
 			log.Fatalf("rename: %v", err)
 		}
 	case "delete":
@@ -58,7 +38,7 @@ func main() {
 			os.Exit(1)
 		}
 		name := flag.Arg(0)
-		if err := deleteSource(db, name); err != nil {
+		if err := deleteSource(*addr, name); err != nil {
 			log.Fatalf("delete: %v", err)
 		}
 	case "merge":
@@ -67,7 +47,7 @@ func main() {
 			os.Exit(1)
 		}
 		from, to := flag.Arg(0), flag.Arg(1)
-		if err := mergeSource(db, from, to); err != nil {
+		if err := mergeSource(*addr, from, to); err != nil {
 			log.Fatalf("merge: %v", err)
 		}
 	case "list":
@@ -75,7 +55,7 @@ func main() {
 			usage()
 			os.Exit(1)
 		}
-		if err := listSources(db); err != nil {
+		if err := listSources(*addr); err != nil {
 			log.Fatalf("list: %v", err)
 		}
 	default:
@@ -84,93 +64,53 @@ func main() {
 	}
 }
 
-func renameSource(db *bolt.DB, from, to string) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
-		if b == nil {
-			return fmt.Errorf("bucket %s not found", bucketName)
-		}
-		src := b.Bucket([]byte(from))
-		if src == nil {
-			return fmt.Errorf("source %s not found", from)
-		}
-		dest, err := b.CreateBucket([]byte(to))
-		if err != nil {
-			return err
-		}
-		if err := src.ForEach(func(k, v []byte) error {
-			var s sample
-			if err := json.Unmarshal(v, &s); err == nil {
-				s.Source = to
-				if nb, err := json.Marshal(s); err == nil {
-					v = nb
-				}
-			}
-			return dest.Put(k, v)
-		}); err != nil {
-			return err
-		}
-		if err := b.DeleteBucket([]byte(from)); err != nil {
-			return err
-		}
-		return nil
-	})
+func postJSON(url string, payload interface{}) error {
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s", strings.TrimSpace(string(body)))
+	}
+	return nil
 }
 
-func deleteSource(db *bolt.DB, name string) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
-		if b == nil {
-			return fmt.Errorf("bucket %s not found", bucketName)
-		}
-		return b.DeleteBucket([]byte(name))
-	})
+func renameSource(addr, from, to string) error {
+	return postJSON(addr+"/api/db/rename", map[string]string{"from": from, "to": to})
 }
 
-func mergeSource(db *bolt.DB, from, to string) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
-		if b == nil {
-			return fmt.Errorf("bucket %s not found", bucketName)
-		}
-		src := b.Bucket([]byte(from))
-		if src == nil {
-			return fmt.Errorf("source %s not found", from)
-		}
-		dest, err := b.CreateBucketIfNotExists([]byte(to))
-		if err != nil {
-			return err
-		}
-		if err := src.ForEach(func(k, v []byte) error {
-			var s sample
-			if err := json.Unmarshal(v, &s); err == nil {
-				s.Source = to
-				if nb, err := json.Marshal(s); err == nil {
-					v = nb
-				}
-			}
-			return dest.Put(k, v)
-		}); err != nil {
-			return err
-		}
-		return b.DeleteBucket([]byte(from))
-	})
+func deleteSource(addr, name string) error {
+	return postJSON(addr+"/api/db/delete", map[string]string{"name": name})
 }
 
-func listSources(db *bolt.DB) error {
-	return db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
-		if b == nil {
-			return fmt.Errorf("bucket %s not found", bucketName)
-		}
-		return b.ForEach(func(k, v []byte) error {
-			if v != nil {
-				return nil
-			}
-			fmt.Println(string(k))
-			return nil
-		})
-	})
+func mergeSource(addr, from, to string) error {
+	return postJSON(addr+"/api/db/merge", map[string]string{"from": from, "to": to})
+}
+
+func listSources(addr string) error {
+	resp, err := http.Get(addr + "/api/db/list")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server error: %s", strings.TrimSpace(string(body)))
+	}
+	var list []string
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return err
+	}
+	for _, name := range list {
+		fmt.Println(name)
+	}
+	return nil
 }
 
 func usage() {

@@ -1,8 +1,10 @@
 <script>
-  import { onMount, tick } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import * as d3 from 'd3';
 
   let datasets = {};
+  let refreshInterval = 0; // seconds; 0 disables auto-refresh
+  let timer;
 
   async function fetchData() {
     const res = await fetch('/api/data', {headers: {'Authorization': localStorage.getItem('token') || ''}});
@@ -14,6 +16,18 @@
   function safeId(name) {
     return name.replace(/[^A-Za-z0-9_-]/g, '_');
   }
+
+  function updateTimer() {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+    if (refreshInterval > 0) {
+      timer = setInterval(fetchData, refreshInterval * 1000);
+    }
+  }
+
+  $: refreshInterval, updateTimer();
 
   function drawAll() {
     const margin = {left: 40, right: 20, top: 0, bottom: 20};
@@ -56,9 +70,8 @@
       if (units) details.push(units);
       if (details.length) label += ` (${details.join(' ')})`;
       g.append('text')
-        .attr('transform', 'rotate(-90)')
-        .attr('y', -margin.left + 15)
-        .attr('x', -height / 2)
+        .attr('x', width / 2)
+        .attr('y', height + margin.bottom + 15)
         .attr('text-anchor', 'middle')
         .text(label);
     }
@@ -85,15 +98,17 @@
     const yLabel = labelParts.join(' ');
 
     g.append('text')
-      .attr('transform', 'rotate(-90)')
-      .attr('y', -margin.left + 10)
-      .attr('x', -height / 2)
+      .attr('x', width / 2)
+      .attr('y', height + margin.bottom + 15)
       .attr('text-anchor', 'middle')
       .text(yLabel);
 
   }
 
   onMount(fetchData);
+  onDestroy(() => {
+    if (timer) clearInterval(timer);
+  });
 </script>
 
 <div id="dashboard">
@@ -104,7 +119,19 @@
     </div>
   {/each}
 </div>
-<button on:click={fetchData}>Refresh</button>
+<div id="controls">
+  <button on:click={fetchData}>Refresh</button>
+  <label>
+    Auto refresh:
+    <select bind:value={refreshInterval}>
+      <option value="0">Off</option>
+      <option value="5">5s</option>
+      <option value="10">10s</option>
+      <option value="30">30s</option>
+      <option value="60">60s</option>
+    </select>
+  </label>
+</div>
 
 <style>
   #dashboard {
@@ -114,5 +141,11 @@
   .chart-container {
     margin-right: 20px;
     margin-bottom: 20px;
+  }
+  #controls {
+    margin-top: 10px;
+  }
+  #controls label {
+    margin-left: 10px;
   }
 </style>
