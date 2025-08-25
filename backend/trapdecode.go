@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
+	"text/template"
 )
 
 // decodeTrapValue converts SNMP trap values represented either as dotted
@@ -29,6 +31,33 @@ func decodeTrapValue(raw string) string {
 		return string(buf)
 	}
 	return raw
+}
+
+type trapVar struct {
+	OID   string
+	Value string
+}
+
+// renderTrap applies a Go template to the supplied trap variables. The
+// decodeTrapValue helper is registered in the template's FuncMap so that any
+// byte-array values are rendered as human readable strings.
+func renderTrap(src string, vars []trapVar) (string, error) {
+	tpl := template.Must(template.New("trap").Funcs(template.FuncMap{
+		"decodeTrap": decodeTrapValue,
+	}).Parse(`{{.Src}}:
+{{- range .Vars}}
+  {{.OID}} => {{decodeTrap .Value}}
+{{- end}}
+`))
+	data := struct {
+		Src  string
+		Vars []trapVar
+	}{Src: src, Vars: vars}
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // ExampleTrapDecoding demonstrates decoding of a typical FortiGate trap
